@@ -1,0 +1,12 @@
+# Node
+node_modules
+dist
+npm-debug.log
+*.lock
+
+# DB
+*.db
+*.db-journal
+
+# Env
+.env

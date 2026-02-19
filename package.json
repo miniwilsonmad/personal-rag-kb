@@ -1,0 +1,40 @@
+
+{
+  "name": "personal-rag-kb",
+  "version": "1.0.0",
+  "description": "A personal knowledge base using RAG.",
+  "main": "dist/cli.js",
+  "bin": "./dist/cli.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/jsdom": "^21.1.7",
+    "@types/mozilla-readability": "^0.2.2",
+    "@types/node": "^20.14.9",
+    "@types/pdf-parse": "^1.1.4",
+    "@types/yargs": "^17.0.32",
+    "typescript": "^5.5.3"
+  },
+
+  "dependencies": {
+    "@google/generative-ai": "^0.14.1",
+    "@mozilla/readability": "^0.5.0",
+    "axios": "^1.7.2",
+    "chromadb": "^1.8.1",
+    "dotenv": "^16.4.5",
+    "jsdom": "^24.1.0",
+    "lru-cache": "^10.2.2",
+    "openai": "^4.52.2",
+    "pdf-parse": "^1.1.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7",
+    "vectors": "^0.1.0",
+    "yargs": "^17.7.2"
+  }
+}
