@@ -1,21 +1,22 @@
 
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
+import * as path from 'path';
 
-import { config } from './config';
+// Cache connections to avoid opening multiple handles to the same DB
+const dbConnections = new Map<string, Database>();
 
-const DB_PATH = config.dbPath;
+export async function getDbConnection(dbPath: string): Promise<Database> {
+  // Resolve absolute path to ensure cache hits
+  const absolutePath = path.resolve(dbPath);
 
-let db: Database | null = null;
-
-export async function getDbConnection(): Promise<Database> {
-  if (db) {
-    return db;
+  if (dbConnections.has(absolutePath)) {
+    return dbConnections.get(absolutePath)!;
   }
 
   const sqlite = sqlite3.verbose();
-  db = await open({
-    filename: DB_PATH,
+  const db = await open({
+    filename: absolutePath,
     driver: sqlite.Database
   });
 
@@ -24,12 +25,13 @@ export async function getDbConnection(): Promise<Database> {
   // Enforce foreign key constraints
   await db.exec('PRAGMA foreign_keys = ON;');
 
-  console.log('Database connection established.');
+  console.error(`Database connection established: ${absolutePath}`);
+  dbConnections.set(absolutePath, db);
   return db;
 }
 
-export async function initializeSchema(): Promise<void> {
-  const db = await getDbConnection();
+export async function initializeSchema(dbPath: string): Promise<void> {
+  const db = await getDbConnection(dbPath);
 
   const createSourcesTable = `
     CREATE TABLE IF NOT EXISTS sources (
@@ -37,7 +39,7 @@ export async function initializeSchema(): Promise<void> {
       url TEXT NOT NULL UNIQUE,
       normalized_url TEXT NOT NULL UNIQUE,
       title TEXT,
-      source_type TEXT NOT NULL CHECK(source_type IN ('article', 'video', 'pdf', 'text', 'tweet', 'other')),
+      source_type TEXT NOT NULL CHECK(source_type IN ('article', 'video', 'pdf', 'text', 'tweet', 'reel', 'other')),
       summary TEXT,
       raw_content TEXT,
       content_hash TEXT NOT NULL UNIQUE,
@@ -53,14 +55,6 @@ export async function initializeSchema(): Promise<void> {
       source_id INTEGER NOT NULL,
       chunk_index INTEGER NOT NULL,
       content TEXT NOT NULL,
-      embedding BLOB,
-      embedding_dim INTEGER,
-      embedding_provider TEXT,
-      embedding_model TEXT,
-      embedding BLOB,
-      embedding_dim INTEGER,
-      embedding_provider TEXT,
-      embedding_model TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (source_id) REFERENCES sources(id) ON DELETE CASCADE
     );
@@ -74,19 +68,26 @@ export async function initializeSchema(): Promise<void> {
   `;
 
   await db.exec(createSourcesTable);
-  console.log('"sources" table created or already exists.');
   await db.exec(createChunksTable);
-  console.log('"chunks" table created or already exists.');
   await db.exec(createIndexes);
-  console.log('Database indexes created or already exist.');
+  console.error(`Schema initialized for ${dbPath}`);
 }
 
-// Ensure schema is initialized on first import
-(async () => {
-  try {
-    await initializeSchema();
-  } catch (error) {
-    console.error('Failed to initialize database schema:', error);
-    process.exit(1);
-  }
-})();
+export async function getAllUniqueTags(dbPath: string): Promise<string[]> {
+    const db = await getDbConnection(dbPath);
+    const rows = await db.all('SELECT tags FROM sources');
+    const allTags = new Set<string>();
+    
+    rows.forEach(row => {
+      try {
+        const tags = JSON.parse(row.tags);
+        if (Array.isArray(tags)) {
+          tags.forEach(t => allTags.add(t));
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    });
+    
+    return Array.from(allTags);
+}

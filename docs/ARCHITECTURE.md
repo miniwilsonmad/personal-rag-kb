@@ -36,7 +36,7 @@ Extraction and embedding happen **once** regardless of how many targets are spec
 ## Components
 
 ### `src/cli.ts`
-Entry point using Yargs. Defines two commands: `ingest` and `query`. Parses `--tags` and `--targets` flags and delegates to the respective module.
+Entry point using Yargs. Defines two commands: `ingest` and `query`. Parses `--tags`, `--targets`, and `--json` flags. Validates configuration at startup and exits with code 1 if no LLM API keys are found. Delegates to the respective module and outputs structured JSON results (or human-readable text) based on the `--json` flag.
 
 ### `src/ingest.ts`
 Orchestrates the full ingestion pipeline:
@@ -45,16 +45,26 @@ Orchestrates the full ingestion pipeline:
 - **Deduplication**: Per-target check against `normalized_url` in SQLite before insertion.
 - **Database transaction**: Source and chunk inserts are wrapped in a `BEGIN`/`COMMIT` transaction with `ROLLBACK` on failure.
 - **File archival**: After successful DB insert, archives the original content to `{repoPath}/{SourceType}/{YYYY-MM}/{sourceId}-{sanitizedTitle}.ext`. PDFs and text files are copied; other types have their `originalContent` written to disk.
+- **Structured Output**: Returns a structured `IngestResult` object (`{ success, source, targets?, tags?, chunks?, error? }`)
 
 ### `src/query.ts`
 Handles the query flow:
 1. Embeds the user's question via `llm-provider.ts`
-2. Queries ChromaDB with optional tag-based `$where` filter
+2. Queries ChromaDB with optional tag-based filter and target collection (defaults to `pablo`)
 3. Deduplicates results by keeping only the best (closest distance) chunk per source URL
 4. Constructs a prompt with retrieved context and generates an answer via `llm-provider.ts`
+5. Returns a structured `QueryResult` object (`{ success, answer?, sources?, error? }`)
 
 ### `src/extractor.ts`
-Responsible for extracting content from sources (URLs, PDFs, YouTube, tweets). Currently a **stub** that returns hardcoded test data — the real implementation needs to be built out.
+Responsible for extracting content from sources. Fully implemented to support:
+- **Articles**: via `axios`, `jsdom`, and `@mozilla/readability`
+- **PDFs**: via `pdf-parse`
+- **YouTube Videos**: via `transcriptapi.com`
+- **Tweets**: via Twitter oembed API
+- **Instagram Reels**: via OpenGraph meta tags
+- **Local Text Files**: via `fs.readFileSync`
+
+Provides `ingestFromSource(source)` which returns an `ExtractedContent` object or throws on failure.
 
 ### `src/classifier.ts`
 Uses the LLM to auto-tag content. Sends a content snippet (first 5000 chars) along with existing tags from the database, and asks the LLM to return a JSON object with assigned tags, newly created tags, and reasoning. Tags are merged with any manually provided tags.
@@ -80,7 +90,7 @@ SQLite connection management using the `sqlite`/`sqlite3` packages:
 - Provides `getAllUniqueTags()` for collecting all existing tags across sources (used by the classifier).
 
 ### `src/config.ts`
-Loads environment variables via `dotenv` from the project root. Exports a `config` object with API keys, database path, collection name, and model identifiers. Tries loading `.env` from `__dirname/../../.env` first (works from both `src/` and `dist/`), then falls back to CWD.
+Loads environment variables via `dotenv` from the project root. Exports a `config` object with API keys, database path, collection name, and model identifiers. Tries loading `.env` from `__dirname/../../.env` first (works from both `src/` and `dist/`), then falls back to CWD. Also exports `validateConfig()` which throws an error if neither `GOOGLE_API_KEY` nor `MINIMAX_API_KEY` is set.
 
 ## Directory Structure (Runtime)
 

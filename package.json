@@ -6,7 +6,7 @@
   "main": "dist/cli.js",
   "bin": "./dist/cli.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node dist/cli.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -15,7 +15,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/jsdom": "^21.1.7",
-    "@types/mozilla-readability": "^0.2.2",
+    "@types/mozilla-readability": "*",
     "@types/node": "^20.14.9",
     "@types/pdf-parse": "^1.1.4",
     "@types/yargs": "^17.0.32",

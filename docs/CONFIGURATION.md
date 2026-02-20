@@ -49,3 +49,49 @@ The targets are hardcoded in `src/ingest.ts`:
 All paths are resolved relative to `src/` (or `dist/`) using `path.resolve(__dirname, '../../<dir>')`, so they point to sibling directories of the project root.
 
 These target directories must exist before running ingestion. If a target directory is missing, that target is skipped with an error message.
+
+## Backups
+
+The project includes a `backup.sh` script to automate daily backups of your knowledge base, including all SQLite databases, file archives, and ChromaDB data.
+
+### Prerequisites
+
+1.  Ensure **ChromaDB is running with a named Docker volume** to ensure data persistence and backupability:
+    ```bash
+    docker run -d -p 8000:8000 -v personal-rag-kb-chroma-data:/chroma/data chromadb/chroma
+    ```
+    *(This is already configured on your system)*
+
+### Running Backups Manually
+
+Execute the backup script manually:
+```bash
+./backup.sh
+```
+
+The backup will be saved to `../personal-rag-kb-backups/` (a sibling directory to your project root) with a timestamped filename (e.g., `personal-rag-kb-backup-20240219120000.tar.gz`). A log file `backup.log` is also created in the same directory.
+
+### Scheduling Automated Backups (Cron)
+
+To schedule daily backups at 2:00 AM:
+
+1.  Open your crontab editor:
+    ```bash
+    crontab -e
+    ```
+2.  Add the following line:
+    ```cron
+    0 2 * * * /home/pablo-madrigal/.openclaw/workspace/personal-rag-kb/backup.sh
+    ```
+3.  Save and exit.
+
+### What is Backed Up
+
+The `backup.sh` script archives:
+*   **Project Code**: `dist/`, `package.json`, `tsconfig.json`, etc.
+*   **Environment**: Your `.env` file (ensure its security if storing backups externally).
+*   **SQLite Databases**: All three target databases (`knowledge_base.db`) located in the storage sibling directories.
+*   **File Archives**: All ingested content files stored in the storage sibling directories.
+*   **ChromaDB Data**: The Docker volume data (if configured as above).
+
+For more details on the backup script logic, see `backup.sh`.

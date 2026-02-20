@@ -59,9 +59,9 @@ The lock is always released in the `finally` block, even if ingestion fails.
 }
 ```
 
-> **Current state**: The extractor is a stub that returns hardcoded test data. See [Known Limitations](./KNOWN_LIMITATIONS.md).
+> **Implementation**: The extractor (`src/extractor.ts`) is fully implemented and supports various source types (articles, PDFs, YouTube videos, tweets, reels, text files) using `axios`, `jsdom`, `@mozilla/readability`, and `pdf-parse`.
 
-If extraction returns falsy, ingestion halts immediately.
+If extraction throws an error, ingestion halts immediately and returns a failure result.
 
 ### 3. Content Classification
 
@@ -153,9 +153,9 @@ The lock file is removed in the `finally` block, guaranteeing cleanup regardless
 | Stage | On Failure |
 |-------|-----------|
 | Lock acquisition | Throws, process exits |
-| Extraction | Returns early, lock released |
-| Classification | Returns empty tags, ingestion continues with manual tags only |
-| Embedding | Returns early if zero chunks embedded, lock released |
+| Extraction | Returns failure result, lock released |
+| Classification | Logs error, ingestion continues with manual tags only |
+| Embedding | Returns failure result if zero chunks embedded, lock released |
 | Dedup check | Target skipped (source already exists) |
 | SQLite transaction | Target skipped (ROLLBACK), other targets continue |
 | ChromaDB insert | Error logged, orphaned SQLite data remains |

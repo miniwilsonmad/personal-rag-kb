@@ -29,3 +29,10 @@ Personal RAG KB is a CLI tool for ingesting and querying personal knowledge base
 | [LLM Providers](./LLM_PROVIDERS.md) | LLM provider hierarchy, models, and fallback behavior |
 | [Chunking & Embeddings](./CHUNKING_AND_EMBEDDINGS.md) | Text chunking algorithm and embedding strategy |
 | [Known Limitations](./KNOWN_LIMITATIONS.md) | Current stubs, hardcoded values, and areas for improvement |
+
+## Maintenance
+
+See [Configuration](./CONFIGURATION.md) for details on:
+- **Backups**: Automated daily backups using `backup.sh` and cron.
+- **ChromaDB**: Running with persistent Docker volumes.
+

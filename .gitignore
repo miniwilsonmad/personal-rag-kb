@@ -1,6 +1,10 @@
 # Node
 node_modules
 dist
+src/*.js
+src/*.d.ts
+src/*.d.ts.map
+src/*.js.map
 npm-debug.log
 *.lock
 

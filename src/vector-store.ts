@@ -3,51 +3,62 @@ import { ChromaClient, OpenAIEmbeddingFunction } from 'chromadb';
 import { config } from './config';
 
 const client = new ChromaClient();
-const COLLECTION_NAME = config.chromaCollectionName;
 
 // Note: ChromaDB's JS client currently requires an embedding function
 // even if we provide our own embeddings. We can provide a dummy one
 // since we will be generating embeddings ourselves with Google/OpenAI clients.
-// This is a known limitation that may change in future versions.
 const embedder = new OpenAIEmbeddingFunction({ openai_api_key: "dummy-key-not-used" });
 
-async function getOrCreateCollection() {
-    try {
-        const collection = await client.getCollection({
-            name: COLLECTION_NAME,
-            embeddingFunction: embedder
-        });
-        console.log(`Connected to existing ChromaDB collection: "${COLLECTION_NAME}"`);
-        return collection;
-    } catch (error) {
-        console.log(`Collection not found. Creating new ChromaDB collection: "${COLLECTION_NAME}"`);
+// Cache collection objects
+const collections = new Map<string, any>();
+
+async function getOrCreateCollection(collectionName: string) {
+    if (collections.has(collectionName)) {
+        return collections.get(collectionName);
+    }
+
+        try {
+            const collection = await client.getCollection({
+                name: collectionName,
+                embeddingFunction: embedder
+            });
+            console.error(`Connected to existing ChromaDB collection: "${collectionName}"`);
+            collections.set(collectionName, collection);
+            return collection;
+        } catch (error: any) {
+            if (error.code === 'ECONNREFUSED') {
+                throw new Error("ChromaDB connection failed. Is ChromaDB running on localhost:8000?");
+            }
+            console.error(`Collection not found. Creating new ChromaDB collection: "${collectionName}"`);
         const collection = await client.createCollection({
-            name: COLLECTION_NAME,
+            name: collectionName,
             embeddingFunction: embedder
         });
+        collections.set(collectionName, collection);
         return collection;
     }
 }
 
-export const collection = getOrCreateCollection();
-
-export async function addChunksToVectorStore(chunks: { id: number, source_id: number, content: string, url: string, title: string, tags: string[] }[], embeddings: number[][]) {
-    const coll = await collection;
+export async function addChunksToVectorStore(
+    collectionName: string,
+    chunks: { id: number, source_id: number, content: string, url: string, title: string, tags: string[] }[], 
+    embeddings: number[][]
+) {
+    const coll = await getOrCreateCollection(collectionName);
     
     if (chunks.length !== embeddings.length) {
         throw new Error("Number of chunks and embeddings must match.");
     }
 
-    const ids = chunks.map(chunk => `chunk_${chunk.id}`);
+    const ids = chunks.map(chunk => `chunk_${chunk.source_id}_${chunk.id}`); // Make ID unique across DB resets
     const metadatas = chunks.map(chunk => ({
         source_id: chunk.source_id,
-        content: chunk.content, // Storing content here avoids a second DB lookup
+        content: chunk.content, 
         url: chunk.url,
         title: chunk.title,
-        tags: chunk.tags.join(',') // ChromaDB metadata values must be strings, numbers, or booleans
+        tags: chunk.tags.join(',')
     }));
 
-    // ChromaDB JS client upsert limit is around 5000, batching is safer for large inputs
     const batchSize = 100;
     for (let i = 0; i < ids.length; i += batchSize) {
         const batchIds = ids.slice(i, i + batchSize);
@@ -59,12 +70,12 @@ export async function addChunksToVectorStore(chunks: { id: number, source_id: nu
             embeddings: batchEmbeddings,
             metadatas: batchMetadatas,
         });
-        console.log(`Added batch of ${batchIds.length} embeddings to ChromaDB.`);
+        console.error(`Added batch of ${batchIds.length} embeddings to ChromaDB collection '${collectionName}'.`);
     }
 }
 
-export async function queryVectorStore(queryEmbedding: number[], topN = 10, whereFilter: object = {}) {
-    const coll = await collection;
+export async function queryVectorStore(collectionName: string, queryEmbedding: number[], topN = 10, whereFilter: object = {}) {
+    const coll = await getOrCreateCollection(collectionName);
     const results = await coll.query({
         queryEmbeddings: [queryEmbedding],
         nResults: topN,

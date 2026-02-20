@@ -85,3 +85,19 @@ Use the `--tags` or `-t` flag to filter the search to only include sources with 
 ```bash
 npm start -- query "Summarize the important articles" --tags "ai,important"
 ```
+
+## Documentation
+
+Detailed documentation is available in the [`docs/`](./docs/) folder:
+
+| Document | Description |
+|----------|-------------|
+| [Overview](./docs/README.md) | Key concepts, tech stack, and documentation index |
+| [Architecture](./docs/ARCHITECTURE.md) | System design, component overview, and data flow diagrams |
+| [Commands](./docs/COMMANDS.md) | CLI command reference with all arguments and options |
+| [Configuration](./docs/CONFIGURATION.md) | Environment variables and target configuration |
+| [Data Model](./docs/DATA_MODEL.md) | SQLite schema and ChromaDB collection structure |
+| [Ingestion Pipeline](./docs/INGESTION_PIPELINE.md) | Step-by-step walkthrough of the ingestion process |
+| [LLM Providers](./docs/LLM_PROVIDERS.md) | LLM provider hierarchy, models, and fallback behavior |
+| [Chunking & Embeddings](./docs/CHUNKING_AND_EMBEDDINGS.md) | Text chunking algorithm and embedding strategy |
+| [Known Limitations](./docs/KNOWN_LIMITATIONS.md) | Current stubs, hardcoded values, and areas for improvement |

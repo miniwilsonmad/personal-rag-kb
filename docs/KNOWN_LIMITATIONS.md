@@ -1,40 +1,28 @@
 # Known Limitations
 
-This document lists the current stubs, hardcoded values, and areas where the codebase is incomplete or inconsistent.
+This document lists the current limitations, inconsistencies, and areas for improvement in the codebase.
 
 ## Stub: Extractor (`src/extractor.ts`)
 
-The extractor is a **minimal stub** that returns hardcoded test data:
-
-```typescript
-return {
-    title: "Test",
-    content: "Test content",
-    originalContent: "Test content",
-    sourceType: "text",
-    fileExtension: ".txt",
-    source: source,
-    normalizedSource: source,
-    contentHash: "testhash"
-};
-```
-
-The README describes support for web articles, PDFs, YouTube transcripts, and tweets, but none of these extraction methods are currently implemented. The extractor needs to be built out with:
-- URL content fetching (the project has `axios`, `jsdom`, and `@mozilla/readability` as dependencies for this)
-- PDF parsing (`pdf-parse` is a dependency)
-- YouTube transcript fetching (`TRANSCRIPT_API_KEY` is configured but unused)
-- Source type detection and URL normalization
-- Content hashing
+This limitation has been resolved. The extractor is now fully implemented and supports:
+- Web articles (via `axios`, `jsdom`, `@mozilla/readability`)
+- PDFs (via `pdf-parse`)
+- YouTube videos (via `transcriptapi.com`)
+- Tweets (via Twitter oembed API)
+- Instagram Reels (via OpenGraph meta tags)
+- Local text files
 
 ## Hardcoded Query Collection
 
-In `src/query.ts`, the ChromaDB collection is hardcoded to `reels_kb`:
+This limitation has been resolved. The `query` command now accepts a `--target` flag to specify which knowledge base to query (`pablo`, `paloma`, or `reels`). It defaults to `pablo`.
 
-```typescript
-const collectionName = 'reels_kb';
-```
+## Compiled JS Files in `src/`
 
-This means all queries search only the `reels` target's collection, regardless of which targets were used during ingestion. The query command has no `--targets` flag to select a different collection.
+This limitation has been resolved. The `.gitignore` now includes patterns for compiled files in `src/` (`*.js`, `*.d.ts`, `*.d.ts.map`, `*.js.map`).
+
+## No Structured Output / Exit Codes
+
+This limitation has been resolved. Both `ingest` and `query` commands now return structured JSON output when used with the `--json` flag, and use appropriate exit codes (`0` for success, `1` for failure).
 
 ## No Test Suite
 
@@ -43,10 +31,6 @@ This means all queries search only the `reels` target's collection, regardless o
 ## Unused `OPENAI_API_KEY`
 
 The `.env.example` file includes `OPENAI_API_KEY` and `config.ts` reads it, but `llm-provider.ts` does not use OpenAI as a provider. The `config.ts` also references `fallbackEmbeddingModel: 'text-embedding-3-small'` (an OpenAI model) but this is never used. The actual fallback is Minimax, not OpenAI.
-
-## Compiled JS Files in `src/`
-
-The `tsconfig.json` sets `outDir: "dist"`, and `.gitignore` ignores `dist/`. However, there are compiled `.js`, `.d.ts`, `.d.ts.map`, and `.js.map` files sitting in the `src/` directory. These appear to be from running `tsc` with a different config or manually. They should be gitignored or removed.
 
 ## ChromaDB Dummy Embedding Function
 
@@ -69,3 +53,7 @@ Tags are stored as a **JSON array** in SQLite (`'["tag1","tag2"]'`) but as a **c
 ## Classification Reference Target
 
 The classifier fetches existing tags from the `reels` target database by default (falling back to the first specified target). This means if you only ingest into `pablo`, the classifier still looks at `reels`'s tags for the existing topic list.
+
+## Autonomous Agent Integration
+
+While the CLI is now fully functional for programmatic use (JSON output, exit codes), the logic for *deciding when* to ingest (e.g., monitoring a feed for new content) or *scheduling* queries is currently external to this project and would need to be implemented by the calling agent (e.g., OpenClaw).

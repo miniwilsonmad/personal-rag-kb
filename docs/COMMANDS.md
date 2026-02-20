@@ -51,6 +51,7 @@ npm start -- query <question> [options]
 | Flag | Alias | Description | Default |
 |------|-------|-------------|---------|
 | `--tags` | `-t` | Comma-separated tags to filter the search. Only sources with **all** specified tags are included. | *(none)* |
+| `--target` | | Target knowledge base to query (`pablo`, `paloma`, `reels`) | `pablo` |
 
 ### Examples
 
@@ -64,4 +65,17 @@ Query with tag filter:
 npm start -- query "Summarize the important articles" --tags "ai,important"
 ```
 
-> **Note**: Queries currently always search the `reels_kb` ChromaDB collection. See [Known Limitations](./KNOWN_LIMITATIONS.md) for details.
+Query a specific target (e.g., reels):
+```bash
+npm start -- query "What is the main topic?" --target reels
+```
+
+### JSON Output
+
+Both commands support JSON output for programmatic use:
+```bash
+npm start -- ingest "https://example.com" --json
+npm start -- query "What is RAG?" --target pablo --json
+```
+
+The JSON output includes `success` (boolean), `error` (string, if applicable), and command-specific fields. Exit codes are `0` for success and `1` for failure.
