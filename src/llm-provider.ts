@@ -74,16 +74,29 @@ export async function generateText(prompt: string, systemInstruction?: string): 
  * Priority: Gemini -> Minimax
  */
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-    // 1. Try Gemini
-    if (genAI && config.googleApiKey) {
+    // 1. Try Gemini via REST API
+    if (config.googleApiKey) {
         try {
-            const model = genAI.getGenerativeModel({ model: "embedding-001" });
-            const result = await model.batchEmbedContents({
-                requests: texts.map(t => ({ content: { role: "user", parts: [{ text: t }] } }))
-            });
-            return result.embeddings.map(e => e.values);
+            const embeddings: number[][] = [];
+            for (const text of texts) {
+                const response = await axios.post(
+                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${config.googleApiKey}`,
+                    { content: { role: "user", parts: [{ text }] } },
+                    { headers: { 'Content-Type': 'application/json' } }
+                );
+                if (response.data.embedding?.values) {
+                    embeddings.push(response.data.embedding.values);
+                } else {
+                    throw new Error("Unexpected Gemini embedding response structure");
+                }
+            }
+            return embeddings;
         } catch (error) {
-            console.warn("Gemini embeddings failed, trying fallback...", (error as Error).message);
+            if (axios.isAxiosError(error)) {
+                console.warn("Gemini embeddings failed, trying fallback...", error.response?.status, (error as Error).message);
+            } else {
+                console.warn("Gemini embeddings failed, trying fallback...", (error as Error).message);
+            }
         }
     }
 

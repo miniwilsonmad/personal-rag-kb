@@ -2,11 +2,9 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Try loading .env from project root (whether running from src or dist)
-const envPath = path.resolve(__dirname, '../../.env');
-dotenv.config({ path: envPath });
-// Fallback for direct execution
-dotenv.config();
+const projectRoot = path.resolve(__dirname, '..');
+const envPath = path.resolve(projectRoot, '.env');
+dotenv.config({ path: envPath, override: true });
 
 export const config = {
     googleApiKey: process.env.GOOGLE_API_KEY,
@@ -22,7 +20,7 @@ export const config = {
 
     primaryEmbeddingModel: 'embedding-001',
     fallbackEmbeddingModel: 'text-embedding-3-small',
-    generativeModel: 'gemini-2.5-flash-lite',
+    generativeModel: 'gemini-2.0-flash',
 };
 
 export function validateConfig() {
