@@ -24,7 +24,7 @@ async function main() {
         'Ingest a new document from a URL or file path',
         (yargs: any) => {
           return yargs.positional('source', {
-            describe: 'URL or local file path of the document to ingest',
+            describe: 'URL, file path, or directory of JSON files (e.g. ./Instagram-reels-rag/output)',
             type: 'string',
           }).option('tags', {
             alias: 't',

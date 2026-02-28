@@ -11,7 +11,7 @@ npm start -- ingest <source> [options]
 ```
 
 ### Arguments
-- `source` (required): URL or local file path of the document to ingest.
+- `source` (required): URL, local file path, or directory of JSON files (e.g. `./Instagram-reels-rag/output` for downloader output).
 
 ### Options
 | Flag | Alias | Description | Default |
@@ -34,6 +34,12 @@ npm start -- ingest "/path/to/document.pdf" --tags "research,ml"
 Ingest into multiple targets:
 ```bash
 npm start -- ingest "https://example.com/article" --targets "pablo,reels" --tags "tech,ai"
+```
+
+Ingest from Instagram-reels-rag downloader output (directory or single JSON file):
+```bash
+npm start -- ingest ./Instagram-reels-rag/output --targets reels
+npm start -- ingest ./Instagram-reels-rag/output/REEL_ID.json --targets reels
 ```
 
 ## Query Command

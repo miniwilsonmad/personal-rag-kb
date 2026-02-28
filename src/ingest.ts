@@ -7,6 +7,14 @@ import { addChunksToVectorStore } from './vector-store';
 import * as fs from 'fs';
 import * as path from 'path';
 
+function globJsonFiles(dirPath: string): string[] {
+    const absDir = path.resolve(dirPath);
+    if (!fs.existsSync(absDir) || !fs.statSync(absDir).isDirectory()) return [];
+    return fs.readdirSync(absDir)
+        .filter((f) => f.endsWith('.json'))
+        .map((f) => path.join(absDir, f));
+}
+
 export interface IngestResult {
     success: boolean;
     source: string;
@@ -72,18 +80,11 @@ function sanitizeFilename(name: string): string {
     return name.replace(/[^a-z0-9_\-\.]/gi, '_').substring(0, 100);
 }
 
-export async function ingestSource(source: string, tags: string[] = [], targetKeys: string[] = ['pablo']): Promise<IngestResult> {
-    if (!source) {
-        const errorMsg = "A source URL or file path is required.";
-        console.error(errorMsg);
-        return { success: false, source, error: errorMsg };
-    }
-
-    try {
-        createLock();
-
-        console.error(`Processing source: ${source}`);
-        console.error(`Targets: ${targetKeys.join(', ')}`);
+async function processOneSource(
+    source: string,
+    tags: string[],
+    targetKeys: string[]
+): Promise<IngestResult> {
 
         // 1. Extraction (Done once for all targets)
         let extractedContent: ExtractedContent;
@@ -231,7 +232,45 @@ export async function ingestSource(source: string, tags: string[] = [], targetKe
             }
         }
         return { success: successfullyIngestedTargets.length > 0, source, targets: successfullyIngestedTargets, tags: finalTags, chunks: embeddedChunks.length };
+}
 
+export async function ingestSource(source: string, tags: string[] = [], targetKeys: string[] = ['pablo']): Promise<IngestResult> {
+    if (!source) {
+        const errorMsg = "A source URL, file path, or directory is required.";
+        console.error(errorMsg);
+        return { success: false, source, error: errorMsg };
+    }
+
+    const resolvedSource = path.resolve(source);
+
+    try {
+        createLock();
+
+        if (fs.existsSync(resolvedSource) && fs.statSync(resolvedSource).isDirectory()) {
+            const jsonFiles = globJsonFiles(resolvedSource);
+            if (jsonFiles.length === 0) {
+                console.error(`No .json files found in directory: ${resolvedSource}`);
+                return { success: false, source: resolvedSource, error: "No .json files found in directory." };
+            }
+            console.error(`Processing ${jsonFiles.length} JSON file(s) from directory: ${resolvedSource}`);
+            console.error(`Targets: ${targetKeys.join(', ')}`);
+            let anySuccess = false;
+            let lastResult: IngestResult = { success: false, source: resolvedSource };
+            for (const filePath of jsonFiles) {
+                try {
+                    const result = await processOneSource(filePath, tags, targetKeys);
+                    lastResult = result;
+                    if (result.success) anySuccess = true;
+                } catch (error: any) {
+                    console.error(`Skipping ${filePath}: ${error.message}`);
+                }
+            }
+            return { ...lastResult, success: anySuccess, source: resolvedSource };
+        }
+
+        console.error(`Processing source: ${source}`);
+        console.error(`Targets: ${targetKeys.join(', ')}`);
+        return await processOneSource(source, tags, targetKeys);
     } catch (error: any) {
         console.error("An error occurred during ingestion:", error.message);
         return { success: false, source, error: `An unexpected error occurred during ingestion: ${error.message}` };

@@ -12,6 +12,23 @@ npm start -- query "What is RAG?" --tags "ai"
 
 There are no tests configured yet (`npm test` is a placeholder).
 
+## Submodule: Instagram-reels-rag (youtube-IG-FB-downloader-for-RAG)
+
+The `Instagram-reels-rag` submodule (repo: `youtube-IG-FB-downloader-for-RAG`) handles downloading and transcribing videos from Instagram, YouTube, and Facebook. This repo manages only the RAG pipeline (classification, embedding, vector store). After cloning, initialize submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
+### Ingesting from Downloader Output
+
+1. Run the downloader in the submodule: `cd Instagram-reels-rag && pnpm analyze "URL" -o ./output --output-format both`
+2. Ingest into RAG: `pnpm start ingest ./Instagram-reels-rag/output --targets reels`
+
+The `ingest` command accepts a directory of JSON files; it discovers all `*.json` files matching the Instagram-reels-rag schema and ingests each. Deduplication via `normalized_url` skips already-ingested items.
+
+To update the submodule to latest: `git submodule update --remote Instagram-reels-rag`. The submodule repo is [youtube-IG-FB-downloader-for-RAG](https://github.com/pablomadrigal/youtube-IG-FB-downloader-for-RAG).
+
 ## Prerequisites
 
 - Node.js v18+
@@ -25,7 +42,7 @@ This is a personal RAG (Retrieval-Augmented Generation) knowledge base CLI. The 
 ### Ingestion (`ingest <source>`)
 `cli.ts` → `ingest.ts` → `extractor.ts` → `classifier.ts` → `embedder.ts` → `vector-store.ts` + `database.ts`
 
-1. **Extract** content from a source URL/file path (`extractor.ts` — currently a stub returning test data)
+1. **Extract** content from a source URL/file path (`extractor.ts` — supports articles, PDFs, YouTube, Instagram Reels, Tweets, text files, and Instagram-reels-rag JSON output)
 2. **Classify** content by auto-tagging via LLM (`classifier.ts` — sends content to LLM, merges auto-tags with manual tags)
 3. **Chunk & Embed** the content (`embedder.ts` — sentence-boundary chunking at ~800 chars with 200 char overlap, LRU-cached embeddings)
 4. **Store** metadata in SQLite (`database.ts`) and vectors in ChromaDB (`vector-store.ts`)

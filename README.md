@@ -29,10 +29,11 @@ This will start a ChromaDB server on `http://localhost:8000`.
 
 ### 3. Clone and Install
 ```bash
-git clone <repository_url>
+git clone --recurse-submodules <repository_url>
 cd personal-rag-kb
 npm install
 ```
+If you already cloned without submodules, run `git submodule update --init --recursive`.
 
 ### 4. Configure Environment
 Create a `.env` file in the root of the project by copying the example file:
@@ -71,6 +72,22 @@ Use the `--tags` or `-t` flag to add comma-separated tags.
 ```bash
 npm start -- ingest "https://example.com/some-article-url" --tags "tech,ai,important"
 ```
+
+**Ingesting Instagram/YouTube content (via downloader submodule):**
+
+The `Instagram-reels-rag` submodule ([youtube-IG-FB-downloader-for-RAG](https://github.com/pablomadrigal/youtube-IG-FB-downloader-for-RAG)) handles video download, transcription, and OCR. This repo ingests its JSON output into the RAG pipeline. Two-step workflow:
+
+1. Download and analyze a video:
+```bash
+cd Instagram-reels-rag && pnpm analyze "https://www.instagram.com/reel/REEL_ID/" -o ./output --output-format both
+```
+
+2. Ingest the output into the knowledge base:
+```bash
+npm start -- ingest ./Instagram-reels-rag/output --targets reels
+```
+
+You can also ingest a single JSON file: `npm start -- ingest ./Instagram-reels-rag/output/REEL_ID.json --targets reels`.
 
 ### Querying the Knowledge Base
 To ask a question, use the `query` command.

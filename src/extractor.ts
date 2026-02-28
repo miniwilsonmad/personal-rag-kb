@@ -22,6 +22,69 @@ export interface ExtractedContent {
 
 export type SourceType = 'article' | 'video' | 'pdf' | 'text' | 'tweet' | 'reel' | 'other';
 
+/** Schema for Instagram-reels-rag pipeline output (downloader + transcription + OCR). */
+export interface DownloaderOutputJson {
+    reelId?: string;
+    url: string;
+    author?: string;
+    description?: string | null;
+    duration?: number;
+    transcription?: string | null;
+    transcriptionProvider?: string | null;
+    ocrText?: string | null;
+}
+
+function isDownloaderOutputJson(obj: unknown): obj is DownloaderOutputJson {
+    if (!obj || typeof obj !== 'object') return false;
+    const o = obj as Record<string, unknown>;
+    if (typeof o.url !== 'string') return false;
+    const hasContent =
+        (o.description != null && String(o.description).trim().length > 0) ||
+        (o.transcription != null && String(o.transcription).trim().length > 0) ||
+        (o.ocrText != null && String(o.ocrText).trim().length > 0);
+    return hasContent;
+}
+
+/**
+ * Extracts ExtractedContent from an Instagram-reels-rag JSON output file.
+ */
+async function extractFromDownloaderJson(filePath: string): Promise<ExtractedContent> {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    const parsed = JSON.parse(raw) as unknown;
+    if (!isDownloaderOutputJson(parsed)) {
+        throw new Error('JSON does not match Instagram-reels-rag output schema (requires url and at least one of description, transcription, ocrText).');
+    }
+    const data = parsed as DownloaderOutputJson;
+
+    const title = data.author
+        ? `${data.author} - ${data.reelId || 'video'}`
+        : (data.reelId || path.basename(filePath, '.json'));
+
+    const sections: string[] = [];
+    if (data.description?.trim()) sections.push(`# Caption / Description\n\n${data.description.trim()}`);
+    if (data.transcription?.trim()) sections.push(`# Transcription\n\n${data.transcription.trim()}`);
+    if (data.ocrText?.trim()) sections.push(`# OCR Text\n\n${data.ocrText.trim()}`);
+    const content = sections.join('\n\n');
+    if (content.trim().length === 0) {
+        throw new Error('Downloader JSON has no extractable content (description, transcription, or ocrText).');
+    }
+
+    const sourceType: SourceType = data.url.includes('youtube.com') || data.url.includes('youtu.be')
+        ? 'video'
+        : 'reel';
+
+    return {
+        title,
+        content,
+        originalContent: raw,
+        sourceType,
+        fileExtension: '.json',
+        source: data.url,
+        normalizedSource: normalizeSource(data.url, sourceType),
+        contentHash: hashContent(content),
+    };
+}
+
 /**
  * Detects the source type based on the input string (URL or file path).
  */
@@ -309,6 +372,20 @@ async function extractTextFile(filePath: string): Promise<ExtractedContent> {
  * Main ingestion function, orchestrates extraction based on source type.
  */
 export async function ingestFromSource(source: string): Promise<ExtractedContent> {
+    // Check for Instagram-reels-rag downloader JSON output first
+    if (path.extname(source).toLowerCase() === '.json' && fs.existsSync(source)) {
+        try {
+            const raw = fs.readFileSync(source, 'utf8');
+            const parsed = JSON.parse(raw) as unknown;
+            if (isDownloaderOutputJson(parsed)) {
+                console.error(`Detected source type: downloader-json for ${source}`);
+                return await extractFromDownloaderJson(source);
+            }
+        } catch {
+            // Not valid JSON or schema mismatch; fall through to normal detection
+        }
+    }
+
     const sourceType = detectSourceType(source);
     console.error(`Detected source type: ${sourceType} for ${source}`);
 
