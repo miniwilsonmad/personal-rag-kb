@@ -1,7 +1,10 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from 'openai';
 import axios from 'axios';
 import { config } from './config';
+
+const openai = config.openaiApiKey ? new OpenAI({ apiKey: config.openaiApiKey }) : null;
 
 // Initialize Gemini if key is present
 const genAI = config.googleApiKey ? new GoogleGenerativeAI(config.googleApiKey) : null;
@@ -10,9 +13,11 @@ export interface LLMResponse {
     text: string;
 }
 
+const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
+
 /**
  * Generates text using the configured LLM provider hierarchy.
- * Priority: Gemini -> Minimax
+ * Priority: Gemini -> OpenAI -> Minimax -> OpenRouter
  */
 export async function generateText(prompt: string, systemInstruction?: string): Promise<string> {
     // 1. Try Gemini
@@ -29,7 +34,27 @@ export async function generateText(prompt: string, systemInstruction?: string): 
         }
     }
 
-    // 2. Fallback to Minimax
+    // 2. Fallback to OpenAI
+    if (openai && config.openaiApiKey) {
+        try {
+            console.error("Using OpenAI for generation...");
+            const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+            if (systemInstruction) {
+                messages.push({ role: "system", content: systemInstruction });
+            }
+            messages.push({ role: "user", content: prompt });
+            const completion = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages,
+            });
+            const text = completion.choices[0]?.message?.content;
+            if (text) return text;
+        } catch (error) {
+            console.warn("OpenAI generation failed:", (error as Error).message);
+        }
+    }
+
+    // 3. Fallback to Minimax
     if (config.minimaxApiKey) {
         try {
             console.error("Using Minimax for generation...");
@@ -42,7 +67,7 @@ export async function generateText(prompt: string, systemInstruction?: string): 
             messages.push({ role: "user", content: prompt });
 
             const response = await axios.post(url, {
-                model: "abab6.5s-chat", // Efficient Minimax model
+                model: config.minimaxChatModel || "MiniMax-M2.5", // Coding Plan / text models
                 messages: messages,
                 stream: false
             }, {
@@ -66,12 +91,46 @@ export async function generateText(prompt: string, systemInstruction?: string): 
         }
     }
 
-    throw new Error("All LLM providers failed. Please check your API keys.");
+    // 4. Fallback to OpenRouter (free models)
+    if (config.openrouterApiKey) {
+        try {
+            console.error("Using OpenRouter for generation...");
+            const messages: { role: string; content: string }[] = [];
+            if (systemInstruction) {
+                messages.push({ role: "system", content: systemInstruction });
+            }
+            messages.push({ role: "user", content: prompt });
+            const response = await axios.post(
+                `${OPENROUTER_BASE}/chat/completions`,
+                {
+                    model: config.openrouterChatModel,
+                    messages,
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${config.openrouterApiKey}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://github.com/pablomadrigal/personal-rag-kb',
+                    },
+                }
+            );
+            const text = response.data?.choices?.[0]?.message?.content;
+            if (text) return text;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.warn("OpenRouter generation failed:", error.response?.status, JSON.stringify(error.response?.data || {}), (error as Error).message);
+            } else {
+                console.warn("OpenRouter generation failed:", (error as Error).message);
+            }
+        }
+    }
+
+    throw new Error("All LLM providers (Gemini, OpenAI, Minimax, OpenRouter) failed. Please check your API keys.");
 }
 
 /**
  * Generates embeddings using the configured LLM provider hierarchy.
- * Priority: Gemini -> Minimax
+ * Priority: Gemini -> OpenAI -> Minimax -> OpenRouter
  */
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
     // 1. Try Gemini via REST API
@@ -100,7 +159,23 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
         }
     }
 
-    // 2. Fallback to Minimax
+    // 2. Fallback to OpenAI embeddings
+    if (openai && config.openaiApiKey) {
+        try {
+            console.error("Using OpenAI for embeddings...");
+            const response = await openai.embeddings.create({
+                model: config.fallbackEmbeddingModel || "text-embedding-3-small",
+                input: texts,
+            });
+            if (response.data?.length === texts.length) {
+                return response.data.map((d) => d.embedding);
+            }
+        } catch (error) {
+            console.warn("OpenAI embeddings failed:", (error as Error).message);
+        }
+    }
+
+    // 3. Fallback to Minimax
     if (config.minimaxApiKey) {
         try {
             console.error("Using Minimax for embeddings...");
@@ -127,6 +202,36 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
                 console.error("Minimax Embedding Axios Error:", error.response?.status, JSON.stringify(error.response?.data));
             } else {
                 console.error("Minimax embeddings failed:", (error as Error).message);
+            }
+        }
+    }
+
+    // 4. Fallback to OpenRouter embeddings
+    if (config.openrouterApiKey) {
+        try {
+            console.error("Using OpenRouter for embeddings...");
+            const response = await axios.post(
+                `${OPENROUTER_BASE}/embeddings`,
+                {
+                    model: config.openrouterEmbeddingModel,
+                    input: texts,
+                },
+                {
+                    headers: {
+                        'Authorization': `Bearer ${config.openrouterApiKey}`,
+                        'Content-Type': 'application/json',
+                        'HTTP-Referer': 'https://github.com/pablomadrigal/personal-rag-kb',
+                    },
+                }
+            );
+            if (response.data?.data?.length === texts.length) {
+                return response.data.data.map((d: { embedding: number[] }) => d.embedding);
+            }
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.warn("OpenRouter embeddings failed:", error.response?.status, JSON.stringify(error.response?.data || {}), (error as Error).message);
+            } else {
+                console.warn("OpenRouter embeddings failed:", (error as Error).message);
             }
         }
     }

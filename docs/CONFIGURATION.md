@@ -12,7 +12,7 @@ cp .env.example .env
 |----------|-------------|----------|
 | `GOOGLE_API_KEY` | API key for Google Gemini. Used as the primary provider for both text generation and embeddings. | Yes (unless Minimax is configured) |
 | `MINIMAX_API_KEY` | API key for Minimax. Used as fallback when Gemini is unavailable or fails. | Optional |
-| `MINIMAX_GROUP_ID` | Group ID for the Minimax API. Required if using Minimax — it is appended to the API URL as a query parameter. | Required if using Minimax |
+| `MINIMAX_GROUP_ID` | Group ID for the Minimax API. Required if using Minimax — 19-digit ID from Basic Information. See [MINIMAX_SETUP.md](MINIMAX_SETUP.md). | Required if using Minimax |
 | `OPENAI_API_KEY` | API key for OpenAI. Referenced in `.env.example` but **not currently used** by `llm-provider.ts`. Exists for potential future use. | Optional |
 | `TRANSCRIPT_API_KEY` | API key for [transcriptapi.com](https://transcriptapi.com), used for fetching YouTube transcripts (when the extractor is fully implemented). | Optional |
 | `DB_PATH` | Path to the default SQLite database file. Note: each target overrides this with its own `dbPath`. | Optional (default: `./knowledge_base.db`) |

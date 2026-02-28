@@ -98,6 +98,7 @@ async function processOneSource(
         // 1.5 Classification (Auto-Tagging)
         console.error('Fetching existing topics and classifying content...');
         const refTarget = TARGETS['reels'] || TARGETS[targetKeys[0]];
+        await initializeSchema(refTarget.dbPath);
         const existingTags = await getAllUniqueTags(refTarget.dbPath);
         
         let classificationTags: string[] = [];

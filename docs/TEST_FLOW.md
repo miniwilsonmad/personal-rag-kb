@@ -30,8 +30,8 @@ From project root:
 
 ```bash
 cd Instagram-reels-rag
-pnpm install
-pnpm run setup:yt-dlp   # if needed
+pnpm install              # Uses .npmrc ignore-workspace so deps install locally
+pnpm run setup:yt-dlp     # Bundles yt-dlp; avoids "Requested format is not available"
 pnpm analyze "https://www.youtube.com/watch?v=dQw4w9WgXcQ" -o ./output --output-format both
 cd ..
 ```

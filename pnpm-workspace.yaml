@@ -1,0 +1,3 @@
+# Allow sqlite3 to run native build scripts (required for node bindings)
+onlyBuiltDependencies:
+  - sqlite3

@@ -24,6 +24,7 @@ Personal RAG KB is a CLI tool for ingesting and querying personal knowledge base
 | [Architecture](./ARCHITECTURE.md) | System design, component overview, and data flow diagrams |
 | [Commands](./COMMANDS.md) | CLI command reference with all arguments and options |
 | [Configuration](./CONFIGURATION.md) | Environment variables and target configuration |
+| [Minimax Setup](./MINIMAX_SETUP.md) | How to get Group ID for Minimax Coding Plan API key |
 | [Data Model](./DATA_MODEL.md) | SQLite schema and ChromaDB collection structure |
 | [Ingestion Pipeline](./INGESTION_PIPELINE.md) | Step-by-step walkthrough of the ingestion process |
 | [LLM Providers](./LLM_PROVIDERS.md) | LLM provider hierarchy, models, and fallback behavior |

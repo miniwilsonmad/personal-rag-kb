@@ -8,16 +8,10 @@ All LLM operations (text generation and embedding) are centralized in `src/llm-p
 Request (generate or embed)
     │
     ├──▶ 1. Gemini (Google)  ← Primary, if GOOGLE_API_KEY is set
-    │         │
-    │         ├── Success → return result
-    │         └── Failure → warn and try next
-    │
-    ├──▶ 2. Minimax          ← Fallback, if MINIMAX_API_KEY is set
-    │         │
-    │         ├── Success → return result
-    │         └── Failure → log error
-    │
-    └──▶ 3. Throw Error      ← All providers exhausted
+    ├──▶ 2. OpenAI           ← Fallback, if OPENAI_API_KEY is set
+    ├──▶ 3. Minimax          ← Fallback, if MINIMAX_API_KEY is set
+    ├──▶ 4. OpenRouter       ← Fallback, free models if OPENROUTER_API_KEY is set
+    └──▶ Throw Error         ← All providers exhausted
 ```
 
 Provider selection is determined by which API keys are present in the environment at startup. If a key is set, that provider is attempted. If it fails, the next provider in the chain is tried.
@@ -30,8 +24,10 @@ Generates a text response from a prompt with an optional system instruction.
 
 | Provider | Model | Notes |
 |----------|-------|-------|
-| Gemini | `gemini-2.5-flash-lite` (configurable via `config.generativeModel`) | System instruction passed via `getGenerativeModel()` options |
-| Minimax | `abab6.5s-chat` | System instruction sent as a `system` role message |
+| Gemini | `gemini-2.0-flash` (configurable) | System instruction via `getGenerativeModel()` |
+| OpenAI | `gpt-4o-mini` | OpenAI Chat Completions API |
+| Minimax | `MiniMax-M2.5` (Coding Plan) | REST API with `system` role |
+| OpenRouter | `google/gemma-2-9b-it:free` (configurable) | Free models; append `:free` for no-cost |
 
 **Gemini** uses the `@google/generative-ai` SDK:
 ```typescript
@@ -52,8 +48,10 @@ Takes an array of strings and returns an array of number arrays (vectors).
 
 | Provider | Model | Notes |
 |----------|-------|-------|
-| Gemini | `embedding-001` | Uses `batchEmbedContents()` for batch processing |
-| Minimax | `embo-01` | Uses REST API with `type: "db"` parameter |
+| Gemini | `embedding-001` | REST API batch |
+| OpenAI | `text-embedding-3-small` | OpenAI Embeddings API |
+| Minimax | `embo-01` | REST API with `type: "db"` |
+| OpenRouter | `nomic-ai/nomic-embed-text-v1.5` (configurable) | Routes to various embedding models |
 
 **Gemini** uses batch embedding:
 ```typescript
