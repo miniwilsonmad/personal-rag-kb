@@ -1,25 +1,24 @@
 #!/bin/bash
 
 # --- Configuration ---
-PROJECT_ROOT="/home/pablo-madrigal/.openclaw/workspace/personal-rag-kb"
-BACKUP_DIR="/home/pablo-madrigal/.openclaw/workspace/personal-rag-kb-backups"
+PROJECT_ROOT="/home/pablo-madrigal/.openclaw/workspace/personal-rag/personal-rag-kb"
+BACKUP_DIR="/home/pablo-madrigal/.openclaw/workspace/personal-rag/personal-rag-kb-backups"
 
 # Source configuration from ingest.ts to get target paths (requires parsing)
 # For simplicity, we'll hardcode the known paths based on CLAUDE.md for now
 # In a more complex scenario, a Node.js script could dynamically read TARGETS from ingest.ts
 TARGET_STORAGE_PATHS=(
-    "/home/pablo-madrigal/.openclaw/workspace/personal-rag-kb-storage"
-    "/home/pablo-madrigal/.openclaw/workspace/paloma-rag-kb-storage"
-    "/home/pablo-madrigal/.openclaw/workspace/instagram-reels-storage"
-    "/var/lib/docker/volumes/personal-rag-kb-chroma-data/_data"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/personal-rag-kb-storage"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/paloma-rag-kb-storage"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/instagram-reels-storage"
 )
 
 # SQLite DB paths (derived from TARGET_STORAGE_PATHS)
 # Assumes DB is named knowledge_base.db within each storage repo
 SQLITE_DB_FILES=(
-    "/home/pablo-madrigal/.openclaw/workspace/personal-rag-kb-storage/knowledge_base.db"
-    "/home/pablo-madrigal/.openclaw/workspace/paloma-rag-kb-storage/knowledge_base.db"
-    "/home/pablo-madrigal/.openclaw/workspace/instagram-reels-storage/knowledge_base.db"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/personal-rag-kb-storage/knowledge_base.db"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/paloma-rag-kb-storage/knowledge_base.db"
+    "/home/pablo-madrigal/.openclaw/workspace/personal-rag/instagram-reels-storage/knowledge_base.db"
 )
 
 # --- Script Logic ---
@@ -67,8 +66,8 @@ for db_file in "${SQLITE_DB_FILES[@]}"; do
     fi
 done
 
-# Perform the backup
-tar -czvf "$BACKUP_DIR/$ARCHIVE_NAME" -C "/" "${BACKUP_ITEMS[@]///}" || { echo "Error: Tar command failed."; exit 1; }
+# Perform the backup (use absolute paths without -C flag)
+tar -czvf "$BACKUP_DIR/$ARCHIVE_NAME" "${BACKUP_ITEMS[@]}" || { echo "Error: Tar command failed."; exit 1; }
 
 echo "$(date): Backup complete: $BACKUP_DIR/$ARCHIVE_NAME"
 

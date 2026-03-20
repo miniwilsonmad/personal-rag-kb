@@ -74,12 +74,18 @@ export async function addChunksToVectorStore(
     }
 }
 
-export async function queryVectorStore(collectionName: string, queryEmbedding: number[], topN = 10, whereFilter: object = {}) {
+export async function queryVectorStore(collectionName: string, queryEmbedding: number[], topN = 10, whereFilter?: object) {
     const coll = await getOrCreateCollection(collectionName);
-    const results = await coll.query({
+    
+    const queryOptions: any = {
         queryEmbeddings: [queryEmbedding],
         nResults: topN,
-        where: whereFilter,
-    });
+    };
+
+    if (whereFilter && Object.keys(whereFilter).length > 0) {
+        queryOptions.where = whereFilter;
+    }
+
+    const results = await coll.query(queryOptions);
     return results;
 }
