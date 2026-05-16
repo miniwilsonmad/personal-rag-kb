@@ -38,8 +38,8 @@ const TARGETS: Record<string, TargetConfig> = {
         collectionName: 'paloma_kb'
     },
     'reels': {
-        repoPath: path.resolve(__dirname, '../../instagram-reels-storage'),
-        dbPath: path.resolve(__dirname, '../../instagram-reels-storage/knowledge_base.db'),
+        repoPath: path.resolve(__dirname, '../../personal-rag-kb-storage'),
+        dbPath: path.resolve(__dirname, '../../personal-rag-kb-storage/knowledge_base.db'),
         collectionName: 'reels_kb'
     }
 };
