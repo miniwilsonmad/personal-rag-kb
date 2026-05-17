@@ -71,6 +71,12 @@ async function main() {
             describe: 'Target knowledge base to query (e.g., pablo, paloma, reels)',
             type: 'string',
             default: 'pablo'
+          }).option('visibility', {
+            describe: 'Visibility filter: shared (only public) or private (public + owned by --owner)',
+            type: 'string',
+          }).option('owner', {
+            describe: 'Owner name for private visibility filter (e.g., pablo, paloma)',
+            type: 'string',
           });
         },
         async (argv: any) => {
@@ -80,7 +86,7 @@ async function main() {
             if (!argv.json) {
                 console.error(`Starting query for: "${argv.question}" with tags: ${tags.join(', ')} from target: ${argv.target}`);
             }
-            result = await answerQuery(argv.question, tags, argv.target as string);
+            result = await answerQuery(argv.question, tags, argv.target as string, argv.visibility as string | undefined, argv.owner as string | undefined);
           } else {
               result = { success: false, error: "Question not provided." };
           }

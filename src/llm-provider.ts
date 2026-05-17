@@ -1,21 +1,101 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import axios from 'axios';
 import { config } from './config';
 
-// Initialize Gemini if key is present
 const genAI = config.googleApiKey ? new GoogleGenerativeAI(config.googleApiKey) : null;
+const openai = config.openaiApiKey ? new OpenAI({ apiKey: config.openaiApiKey }) : null;
+
+// OpenCode Go (OpenAI-compatible cloud)
+const OPENCODE_API_KEY = process.env.OPENCODE_GO_API_KEY || "";
+const OPENCODE_BASE_URL = "https://opencode.ai/zen/go/v1";
+const OPENCODE_GEN_MODEL = process.env.OPENCODE_GEN_MODEL || "qwen3.6-plus";
+const opencode = OPENCODE_API_KEY ? new OpenAI({ apiKey: OPENCODE_API_KEY, baseURL: OPENCODE_BASE_URL }) : null;
+
+// Ollama (local)
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+const OLLAMA_EMBED_MODEL = process.env.OLLAMA_EMBED_MODEL || "nomic-embed-text";
+const OLLAMA_GEN_MODEL = process.env.OLLAMA_GEN_MODEL || "qwen2.5:3b";
 
 export interface LLMResponse {
     text: string;
 }
 
 /**
- * Generates text using the configured LLM provider hierarchy.
- * Priority: Gemini -> Minimax
+ * Text generation: OpenCode Go -> OpenAI -> Ollama -> Gemini -> Minimax
  */
 export async function generateText(prompt: string, systemInstruction?: string): Promise<string> {
-    // 1. Try Gemini
+    // 1. OpenCode Go (cloud, OpenAI-compatible)
+    if (opencode && OPENCODE_API_KEY) {
+        try {
+            console.error("Using OpenCode Go for generation...");
+            const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+            if (systemInstruction) {
+                messages.push({ role: "system", content: systemInstruction });
+            }
+            messages.push({ role: "user", content: prompt });
+
+            const response = await opencode.chat.completions.create({
+                model: OPENCODE_GEN_MODEL,
+                messages: messages,
+                temperature: 0.3,
+            });
+            const content = response.choices[0]?.message?.content;
+            if (content) return content;
+            throw new Error("OpenCode Go returned empty response");
+        } catch (error) {
+            console.warn("OpenCode Go generation failed, trying fallback...", (error as Error).message);
+        }
+    }
+
+    // 2. OpenAI
+    if (openai && config.openaiApiKey) {
+        try {
+            const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [];
+            if (systemInstruction) {
+                messages.push({ role: "system", content: systemInstruction });
+            }
+            messages.push({ role: "user", content: prompt });
+
+            const response = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: messages,
+                temperature: 0.3,
+            });
+            const content = response.choices[0]?.message?.content;
+            if (content) return content;
+            throw new Error("OpenAI returned empty response");
+        } catch (error) {
+            console.warn("OpenAI generation failed, trying fallback...", (error as Error).message);
+        }
+    }
+
+    // 3. Ollama (local)
+    try {
+        console.error("Using Ollama for generation...");
+        const messages: { role: string; content: string }[] = [];
+        if (systemInstruction) {
+            messages.push({ role: "system", content: systemInstruction });
+        }
+        messages.push({ role: "user", content: prompt });
+
+        const response = await axios.post(`${OLLAMA_BASE_URL}/api/chat`, {
+            model: OLLAMA_GEN_MODEL,
+            messages: messages,
+            stream: false,
+        }, { timeout: 120000 });
+
+        if (response.data?.message?.content) {
+            return response.data.message.content;
+        }
+        throw new Error("Ollama returned empty response");
+    } catch (error) {
+        const msg = axios.isAxiosError(error) ? `${error.response?.status} ${error.code}` : (error as Error).message;
+        console.warn("Ollama generation failed, trying next fallback...", msg);
+    }
+
+    // 4. Gemini
     if (genAI && config.googleApiKey) {
         try {
             const model = genAI.getGenerativeModel({ 
@@ -29,12 +109,11 @@ export async function generateText(prompt: string, systemInstruction?: string): 
         }
     }
 
-    // 2. Fallback to Minimax
+    // 5. Minimax
     if (config.minimaxApiKey) {
         try {
             console.error("Using Minimax for generation...");
             const url = `https://api.minimax.io/v1/text/chatcompletion_v2?GroupId=${config.minimaxGroupId || ''}`;
-            
             const messages = [];
             if (systemInstruction) {
                 messages.push({ role: "system", content: systemInstruction });
@@ -42,7 +121,7 @@ export async function generateText(prompt: string, systemInstruction?: string): 
             messages.push({ role: "user", content: prompt });
 
             const response = await axios.post(url, {
-                model: "abab6.5s-chat", // Efficient Minimax model
+                model: "abab6.5s-chat",
                 messages: messages,
                 stream: false
             }, {
@@ -52,17 +131,12 @@ export async function generateText(prompt: string, systemInstruction?: string): 
                 }
             });
 
-            if (response && response.data && response.data.choices) {
+            if (response?.data?.choices) {
                 return response.data.choices[0].message.content;
-            } else {
-                throw new Error("Minimax response structure unexpected: " + (response ? JSON.stringify(response.data) : "Empty response"));
             }
+            throw new Error("Minimax response structure unexpected: " + JSON.stringify(response?.data));
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.error("Minimax Axios Error:", error.response?.status, JSON.stringify(error.response?.data));
-            } else {
-                console.error("Minimax generation failed:", (error as Error).message);
-            }
+            console.error("Minimax generation failed:", axios.isAxiosError(error) ? error.response?.status : (error as Error).message);
         }
     }
 
@@ -70,17 +144,66 @@ export async function generateText(prompt: string, systemInstruction?: string): 
 }
 
 /**
- * Generates embeddings using the configured LLM provider hierarchy.
- * Priority: Gemini -> Minimax
+ * Embeddings: Ollama -> OpenAI -> Gemini -> Minimax
  */
 export async function getEmbeddings(texts: string[]): Promise<number[][]> {
-    // 1. Try Gemini via REST API
+    // 1. Ollama (local) with retries
+    try {
+        console.error(`Using Ollama for embeddings (${texts.length} texts, model: ${OLLAMA_EMBED_MODEL})...`);
+        const embeddings: number[][] = [];
+        for (const text of texts) {
+            let embedding: number[] | null = null;
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try {
+                    if (attempt > 0) {
+                        console.error(`  Retry ${attempt + 1}/3 for Ollama embedding...`);
+                        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1))); // delay 1s, 2s
+                    }
+                    const response = await axios.post(`${OLLAMA_BASE_URL}/api/embeddings`, {
+                        model: OLLAMA_EMBED_MODEL,
+                        prompt: text,
+                    }, { timeout: 30000 });
+                    if (response.data?.embedding && response.data.embedding.length > 0) {
+                        embedding = response.data.embedding;
+                        break;
+                    }
+                } catch (retryError) {
+                    console.warn(`  Ollama embedding attempt ${attempt + 1} failed:`, (retryError as Error).message);
+                }
+            }
+            if (embedding) {
+                embeddings.push(embedding);
+            } else {
+                throw new Error("Ollama returned empty embedding after 3 retries");
+            }
+        }
+        return embeddings;
+    } catch (error) {
+        const msg = axios.isAxiosError(error) ? `${error.response?.status} ${error.code}` : (error as Error).message;
+        console.warn("Ollama embeddings failed, trying fallback...", msg);
+    }
+
+    // 2. OpenAI
+    if (openai && config.openaiApiKey) {
+        try {
+            const response = await openai.embeddings.create({
+                model: "text-embedding-3-small",
+                input: texts,
+            });
+            return response.data.map(item => item.embedding);
+        } catch (error) {
+            console.warn("OpenAI embeddings failed, trying fallback...", (error as Error).message);
+        }
+    }
+
+    // 3. Gemini
     if (config.googleApiKey) {
         try {
             const embeddings: number[][] = [];
+            const geminiKey = config.googleApiKey as string;
             for (const text of texts) {
-                const response = await axios.post(
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=${config.googleApiKey}`,
+                const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + geminiKey;
+                const response = await axios.post(url,
                     { content: { role: "user", parts: [{ text }] } },
                     { headers: { 'Content-Type': 'application/json' } }
                 );
@@ -92,20 +215,15 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
             }
             return embeddings;
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.warn("Gemini embeddings failed, trying fallback...", error.response?.status, (error as Error).message);
-            } else {
-                console.warn("Gemini embeddings failed, trying fallback...", (error as Error).message);
-            }
+            console.warn("Gemini embeddings failed, trying fallback...", (error as Error).message);
         }
     }
 
-    // 2. Fallback to Minimax
+    // 4. Minimax
     if (config.minimaxApiKey) {
         try {
             console.error("Using Minimax for embeddings...");
             const url = `https://api.minimax.io/v1/embeddings?GroupId=${config.minimaxGroupId || ''}`;
-            
             const response = await axios.post(url, {
                 model: "embo-01",
                 texts: texts,
@@ -116,18 +234,12 @@ export async function getEmbeddings(texts: string[]): Promise<number[][]> {
                     'Content-Type': 'application/json'
                 }
             });
-
-            if (response && response.data && response.data.vectors) {
+            if (response?.data?.vectors) {
                 return response.data.vectors;
-            } else {
-                throw new Error("Minimax embedding response structure unexpected: " + (response ? JSON.stringify(response.data) : "Empty response"));
             }
+            throw new Error("Minimax embedding response structure unexpected: " + JSON.stringify(response?.data));
         } catch (error) {
-            if (axios.isAxiosError(error)) {
-                console.error("Minimax Embedding Axios Error:", error.response?.status, JSON.stringify(error.response?.data));
-            } else {
-                console.error("Minimax embeddings failed:", (error as Error).message);
-            }
+            console.error("Minimax embeddings failed:", axios.isAxiosError(error) ? error.response?.status : (error as Error).message);
         }
     }
 

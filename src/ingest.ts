@@ -41,6 +41,11 @@ const TARGETS: Record<string, TargetConfig> = {
         repoPath: path.resolve(__dirname, '../../personal-rag-kb-storage'),
         dbPath: path.resolve(__dirname, '../../personal-rag-kb-storage/knowledge_base.db'),
         collectionName: 'reels_kb'
+    },
+    'family': {
+        repoPath: path.resolve(__dirname, '../../family-rag-kb-storage'),
+        dbPath: path.resolve(__dirname, '../../family-rag-kb-storage/knowledge_base.db'),
+        collectionName: 'family_kb'
     }
 };
 
@@ -97,6 +102,7 @@ export async function ingestSource(source: string, tags: string[] = [], targetKe
         // 1.5 Classification (Auto-Tagging)
         console.error('Fetching existing topics and classifying content...');
         const refTarget = TARGETS['reels'] || TARGETS[targetKeys[0]];
+        await initializeSchema(refTarget.dbPath);
         const existingTags = await getAllUniqueTags(refTarget.dbPath);
         
         let classificationTags: string[] = [];

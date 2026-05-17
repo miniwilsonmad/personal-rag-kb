@@ -56,7 +56,7 @@ export async function addChunksToVectorStore(
         content: chunk.content, 
         url: chunk.url,
         title: chunk.title,
-        tags: chunk.tags.join(',')
+        tags: chunk.tags  // Store as array for ChromaDB $contains filtering
     }));
 
     const batchSize = 100;

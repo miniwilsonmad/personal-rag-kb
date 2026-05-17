@@ -24,12 +24,24 @@ export function chunkContent(content: string): Chunk[] {
     let chunkIndex = 0;
 
     for (const sentence of sentences) {
-        if (currentChunk.length + sentence.length <= chunkSize) {
-            currentChunk += (currentChunk ? " " : "") + sentence;
+        const trimmed = sentence.trim();
+        if (!trimmed) continue; // skip empty sentences
+        
+        if (currentChunk.length + trimmed.length <= chunkSize) {
+            currentChunk += (currentChunk ? " " : "") + trimmed;
         } else {
-            chunks.push({ content: currentChunk, chunk_index: chunkIndex++ });
+            // Only push if currentChunk has content
+            if (currentChunk.length >= minChunkSize) {
+                chunks.push({ content: currentChunk, chunk_index: chunkIndex++ });
+            }
             const overlapIndex = Math.max(0, currentChunk.length - chunkOverlap);
-            currentChunk = currentChunk.substring(overlapIndex) + " " + sentence;
+            currentChunk = currentChunk.substring(overlapIndex);
+            // Handle sentence longer than chunkSize by prepending overlap text
+            if (currentChunk) {
+                currentChunk += " " + trimmed;
+            } else {
+                currentChunk = trimmed;
+            }
         }
     }
 

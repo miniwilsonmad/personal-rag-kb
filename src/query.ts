@@ -16,7 +16,7 @@ export interface QueryResult {
     error?: string;
 }
 
-export async function answerQuery(query: string, tags: string[] = [], target: string = 'pablo'): Promise<QueryResult> {
+export async function answerQuery(query: string, tags: string[] = [], target: string = 'pablo', visibility?: string, owner?: string): Promise<QueryResult> {
     if (!query) {
         console.error("A query is required.");
         return { success: false, error: "A query is required." };
@@ -36,12 +36,39 @@ export async function answerQuery(query: string, tags: string[] = [], target: st
     }
 
     // 2. Query Vector Store (ChromaDB)
-    console.error(`Querying vector store... (tags: ${tags.join(', ') || 'none'})`);
+    console.error(`Querying vector store... (tags: ${tags.join(', ') || 'none'}, visibility: ${visibility || 'none'}, owner: ${owner || 'none'})`);
     const collectionName = `${target}_kb`; 
     
-    const whereFilter = tags.length > 0 
-        ? { "$and": tags.map(tag => ({ "tags": { "$contains": tag } })) }
-        : {};
+    // Build where filter — supports visibility-based $or queries
+    let whereFilter: any = {};
+    
+    if (visibility === 'shared') {
+        // Shared group: only visibility:shared content
+        whereFilter = { "tags": { "$contains": "visibility:shared" } };
+    } else if (visibility === 'private' && owner) {
+        // Private DM: shared content OR (private content owned by this user)
+        whereFilter = {
+            "$or": [
+                { "tags": { "$contains": "visibility:shared" } },
+                { "$and": [
+                    { "tags": { "$contains": "visibility:private" } },
+                    { "tags": { "$contains": "owner:" + owner } }
+                ]}
+            ]
+        };
+    }
+    
+    // Combine with additional tag filters if any
+    if (tags.length > 0) {
+        const tagFilters = tags.map(tag => ({ "tags": { "$contains": tag } }));
+        if (Object.keys(whereFilter).length > 0) {
+            whereFilter = { "$and": [whereFilter, ...tagFilters] };
+        } else {
+            whereFilter = { "$and": tagFilters };
+        }
+    }
+    
+    console.error("Where filter: " + JSON.stringify(whereFilter));
 
     const searchResults = await queryVectorStore(collectionName, queryVector, 10, whereFilter);
     

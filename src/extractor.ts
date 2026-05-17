@@ -98,7 +98,11 @@ export function hashContent(content: string): string {
  * Extracts content from an article URL using JSDOM and Readability.
  */
 async function extractArticle(url: string): Promise<ExtractedContent> {
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+        }
+    });
     const html = response.data;
     const dom = new JSDOM(html, { url });
     const reader = new Readability(dom.window.document);
@@ -214,7 +218,11 @@ async function extractYouTubeVideo(url: string): Promise<ExtractedContent> {
  */
 async function extractTweet(url: string): Promise<ExtractedContent> {
     const oembedUrl = `https://publish.twitter.com/oembed?url=${encodeURIComponent(url)}&omit_script=true`;
-    const response = await axios.get(oembedUrl);
+    const response = await axios.get(oembedUrl, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+        }
+    });
     const oembedData = response.data;
 
     if (!oembedData || !oembedData.html) {
@@ -249,7 +257,11 @@ async function extractTweet(url: string): Promise<ExtractedContent> {
  * Extracts content from an Instagram Reel by fetching HTML and parsing OpenGraph meta tags.
  */
 async function extractReel(url: string): Promise<ExtractedContent> {
-    const response = await axios.get(url);
+    const response = await axios.get(url, {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+        }
+    });
     const html = response.data;
     const dom = new JSDOM(html);
 
